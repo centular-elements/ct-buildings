@@ -1,0 +1,202 @@
+<link rel="import" href="../polymer/polymer.html">
+
+<link rel="import" href="../paper-button/paper-button.html">
+<link rel="import" href="../paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../paper-input/paper-input.html">
+<link rel="import" href="../paper-dropdown-menu/paper-dropdown-menu.html">
+
+<link rel="import" href="../ct-core-utils/ct-api-consumer-behaviour.html">
+<link rel="import" href="../ct-buildings-api/ct-buildings-api.html">
+<link rel="import" href="../iron-a11y-keys/iron-a11y-keys.html">
+<link rel="import" href="../paper-input-location/paper-input-location.html">
+
+<!--
+`ct-search-buildings`
+Element for searching across all buildings
+
+@demo demo/index.html
+-->
+
+<dom-module id="ct-search-buildings">
+  <template>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <style is="custom-styles">
+      :host {
+        display: block;
+        --paper-input-container:  {
+          border-top:1px solid #ccc;
+          border-left:1px solid #ccc;
+          border-right:1px solid #ccc;
+          border-bottom: none;
+          padding: 0;
+        };
+        /*padding to move from border */
+        --paper-input-container-label: {
+          margin-left: 10px;
+        };
+        --paper-input-container-label-floating: {
+          margin-left: 10px;
+        };
+      }
+      .main-section {
+        margin-top:20px;
+      }
+      paper-dropdown-menu.custom-dropdown {
+        width: 100%;
+        --paper-input-container: {
+          border-top:1px solid #ccc;
+          border-left:1px solid #ccc;
+          border-right:1px solid #ccc;
+          border-bottom: none;
+          padding: 0;
+          margin-bottom: 8px;
+        };
+        --paper-input-container-input: {
+          padding-left: 10px;
+        };
+      }
+      .search-field {
+        margin-bottom: 10px;
+      }
+    </style>
+
+    <ct-owners-api id="buildingsApi"></ct-owners-api>
+
+    <div class="main-section">
+      <div class="container-fluid">
+        <div class="row">
+          <div class="col-xs-12">
+            <!--<template is="dom-if" if="{{_computeHasData(userList)}}">-->
+            <div class="table-responsive">
+              <table class="table table-striped table-bordered table-hover table-middle">
+                <thead>
+                <th>Building Name</th>
+                <th>Address</th>
+                <th>Owner</th>
+                <th>Actions</th>
+                </thead>
+                <tr>
+                  <td>
+                    <paper-input id="txtBuildingName" label="Building Name"></paper-input>
+                    <iron-a11y-keys id="a11y" target="[[ _searchBuildingName ]]" keys="enter" on-keys-pressed="_searchTapped"></iron-a11y-keys>
+                  </td>
+                  <td>
+                    <paper-input-location
+                            id="addressSearchInput"
+                            maps-api-key="[[ googleMapApiKey ]]"
+                            label="Search address"
+                            on-place-clicked="_searchTapped">
+                    </paper-input-location>
+                  </td>
+                  <td></td>
+                  <td><paper-button class="btn btn-primary btn-block" on-tap="_searchTapped" raised>Search</paper-button></td>
+                </tr>
+                <tbody>
+                <template is="dom-repeat" items="{{ _buildings }}">
+                  <tr>
+                    <td>[[item.name]]</td>
+                    <td>[[item.address]]</td>
+                    <td>U.C.</td>
+                    <td class="text-center"><paper-button class="table-button btn-primary btn-sm" on-tap="_viewBuildingTapped" raised>View/Edit</paper-button></td>
+                  </tr>
+                </template>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </template>
+  <script>
+
+    Polymer({
+
+      is: 'ct-search-buildings',
+      behaviors: [CT.Behaviours.ApiConsumer],
+
+      properties: {
+        googleMapApiKey: String,
+        refreshing: {
+          type: Boolean,
+          notify: true
+        },
+        _searchBuildingName: {
+          type: Object,
+          value: function() {
+            return this.$.txtBuildingName;
+          }
+        },
+        _addressSearchInput: {
+          type: Object,
+          value: function() {
+            return this.$.addressSearchInput;
+          }
+        }
+      },
+
+      refresh: function() {
+        this._init();
+      },
+
+      _init: function() {
+        //this.refreshing = true;
+        //this._getAllOwnerBuildings();
+        this._searchTapped();
+      },
+
+      _getSearchAddress: function () {
+        var addressComponents = this.$.addressSearchInput.place.address_components;
+
+        if (addressComponents) {
+          return {
+            streetNumber: this._findAddressComponentValue(addressComponents, 'street_number'),
+            streetName: this._findAddressComponentValue(addressComponents, 'route'),
+            suburb: this._findAddressComponentValue(addressComponents, 'sublocality'),
+            city: this._findAddressComponentValue(addressComponents, 'locality'),
+            province: this._findAddressComponentValue(addressComponents, 'administrative_area_level_1'),
+            country: this._findAddressComponentValue(addressComponents, 'country'),
+            postalCode: this._findAddressComponentValue(addressComponents, 'postal_code')
+          };
+        } else {
+          return undefined
+        }
+      },
+
+      _findAddressComponentValue: function (addressComponents, fieldType) {
+        var fields = addressComponents.filter(function(component) {
+          return component.types.filter(function (type) {
+                    return type === fieldType;
+                  }).length === 1;
+        });
+        return fields.length > 0 ? fields[0].long_name : null;
+      },
+
+      _searchTapped: function (e) {
+
+        var searchAddress = this._getSearchAddress();
+
+        var buildingName = this.$.txtBuildingName.value != '' ? this.$.txtBuildingName.value : null;
+        var streetNumber = searchAddress ? searchAddress.streetNumber : null;
+        var streetName = searchAddress ? searchAddress.streetName : null;
+        var suburb = searchAddress ? searchAddress.suburb : null;
+        var city = searchAddress ? searchAddress.city : null;
+        var province = searchAddress ? searchAddress.province : null;
+        var country = searchAddress ? searchAddress.country : null;
+        var postalCode = searchAddress ? searchAddress.postalCode : null;
+
+        this.$.buildingsApi.searchBuildings('1', '20', buildingName, streetNumber, streetName, suburb, city, province, country, postalCode)
+                .then(this._setPropertyResponseResults.bind(this, '_buildings'))
+                .catch(this.fire.bind(this, 'toast', {message: 'Failed to search buildings', type: 'danger'}))
+                .finally(this.set.bind(this, 'refreshing', false));
+      },
+
+      _viewBuildingTapped: function (e) {
+        this.fire('ct-view-building-tapped', e.model.item.id);
+      }
+    });
+  </script>
+
+</dom-module>
+
