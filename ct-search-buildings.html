@@ -60,7 +60,7 @@ Element for searching across all buildings
       }
     </style>
 
-    <ct-owners-api id="buildingsApi"></ct-owners-api>
+    <ct-buildings-api id="buildingsApi"></ct-buildings-api>
 
     <div class="main-section">
       <div class="container-fluid">
@@ -136,14 +136,24 @@ Element for searching across all buildings
         }
       },
 
+      ready: function() {
+        this._init();
+      },
+
       refresh: function() {
         this._init();
       },
 
       _init: function() {
         //this.refreshing = true;
-        //this._getAllOwnerBuildings();
-        this._searchTapped();
+        this._getAllOwnerBuildings();
+      },
+
+      _getAllOwnerBuildings: function() {
+        this.$.buildingsApi.filterBuildings('1', '20')
+                .then(this._setPropertyResponseResults.bind(this, '_buildings'))
+                .catch(this.fire.bind(this, 'toast', {message: 'Failed to load owners', type: 'danger'}))
+                .finally(this.set.bind(this, 'refreshing', false));
       },
 
       _getSearchAddress: function () {
@@ -172,6 +182,8 @@ Element for searching across all buildings
         });
         return fields.length > 0 ? fields[0].long_name : null;
       },
+
+
 
       _searchTapped: function (e) {
 
